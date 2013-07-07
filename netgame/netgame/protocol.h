@@ -4,16 +4,24 @@
 #include <climits>
 #include <cstdint>
 
+// Type of the magic number in the packet header
 typedef uint32_t magic_t;
+
+// Sequence number type
 typedef uint32_t seq_t;
+
+// Bitfield type to use to acknowledge past packets (one ack per bit)
 typedef uint32_t ack_bitfield_t;
 
-enum {
-	ACKS_PER_BITFIELD = sizeof(ack_bitfield_t) * CHAR_BIT,
-};
+// Type that can hold all channel numbers
+typedef uint16_t channel_id_t;
 
 enum {
-	MAX_PACKET_SIZE = 1024 * 1024,
+	// Number of bits in a `ack_bitfield_t`
+	ACKS_PER_BITFIELD = sizeof(ack_bitfield_t) * CHAR_BIT,
+
+	// Maxium size of a packet to send
+	MAX_PACKET_SIZE = 64,
 };
 
 #endif

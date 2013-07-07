@@ -21,6 +21,9 @@
     <ClInclude Include="connection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="channel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="packet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -30,6 +33,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="connection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="packet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

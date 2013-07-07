@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="channel.h" />
     <ClInclude Include="connection.h" />
     <ClInclude Include="packet.h" />
     <ClInclude Include="protocol.h" />
@@ -18,6 +19,7 @@
   <ItemGroup>
     <ClCompile Include="connection.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="packet.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{C153A12E-D61E-47A3-A533-5CDC04DB09B9}</ProjectGuid>

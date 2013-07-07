@@ -25,20 +25,19 @@ void server(unsigned short port)
 
 	std::map<Address, Connection> connections;
 
-	Packet recvp(MAX_PACKET_SIZE);
+	PacketPool recvPool(MAX_PACKET_SIZE);
 	Address recva(sizeof (sockaddr_in));
 
 	while (true)
 	{
-		int recvl;
-
-		while ((recvl = socket.receive_from(recva, recvp.data(), recvp.size())) > 0) {
+		Packet recvp;
+		while (!(recvp = recvPool.allocate(socket.receive_from(recva, recvPool.nextData(), recvPool.nextSize()))).empty()) {
 			auto it = connections.find(recva);
 			if (it == connections.end()) {
 				// A new connection
 				std::cout << "New connection " << recva << std::endl;
 				connections[recva] = Connection(recva, 0xDEADBEEF);
-
+				connections[recva].m_DEBUG_packet_loss = 0.5f;
 				std::cout << "Creating a connection with the magic number " << 0xDEADBEEF << std::endl;
 				char buf[4]; NetWriter writer(buf, 4); writer.write(0xDEADBEEF);
 				socket.send_to(recva, writer.data(), writer.write_amount());
@@ -71,15 +70,14 @@ void client(const char* addr, const char* port)
 
 	Connection connection;
 
-	Packet recvp(MAX_PACKET_SIZE);
-	int recvl;
+	PacketPool recvPool(MAX_PACKET_SIZE);
+	
 	while (true) {
-		recvl = socket.receive(recvp.data(), recvp.size());
-		if (recvl > 0) {
+		Packet recvp = recvPool.allocate(socket.receive(recvPool.nextData(), recvPool.nextSize()));
+		if (!recvp.empty()) {
 			NetReader reader = recvp.read();
 			magic_t magic;
 			if (!reader.read(magic)) {
-				recvl = -1;
 				continue;
 			}
 			std::cout << "Established a connection with the magic number " << magic << std::endl;
@@ -89,7 +87,8 @@ void client(const char* addr, const char* port)
 	}
 
 	while (true) {
-		while ((recvl = socket.receive(recvp.data(), recvp.size())) > 0) {
+		Packet recvp;
+		while (!(recvp = recvPool.allocate(socket.receive(recvPool.nextData(), recvPool.nextSize()))).empty()) {
 			connection.process_packet(recvp);
 		}
 		
