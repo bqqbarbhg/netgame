@@ -15,6 +15,7 @@
     <ClInclude Include="connection.h" />
     <ClInclude Include="packet.h" />
     <ClInclude Include="protocol.h" />
+    <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="channel.cpp" />

@@ -1,6 +1,7 @@
 #include "channel.h"
 #include <algorithm>
 #include <utility>
+#include "util.h"
 
 void ChannelIn::add_to_queue(seq_t seq, Packet packet)
 {
@@ -25,8 +26,12 @@ void ChannelIn::add_to_queue(seq_t seq, Packet packet)
 		// Don't add duplicate packets
 		if (pair.first <= m_last_read)
 			return;
-		// If this is the newest packet push back (usual case)
-		if (pair.first > m_received.back().first) {
+		
+		if (m_received.empty()) {
+			// Always push if empty (and newer than last read)
+			m_received.push_back(std::move(pair));
+		} else if (pair.first > m_received.back().first) {
+			// If this is the newest packet push back (usual case)
 			m_received.push_back(std::move(pair));
 		} else {
 			// Else insert to the correct position in the queue (if new)
@@ -34,6 +39,8 @@ void ChannelIn::add_to_queue(seq_t seq, Packet packet)
 				[](const decltype(pair)& a, const decltype(pair)& b) {
 					return a.first < b.first;
 				});
+			// TODO: Check lower_bound semantics
+			NETGAME_ASSERT(pos != m_received.end());
 			if (pos->first != pair.first)
 				m_received.insert(pos, std::move(pair));
 		}
