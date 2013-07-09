@@ -17,6 +17,7 @@
     <ClInclude Include="protocol.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="channel.cpp" />
     <ClCompile Include="connection.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="packet.cpp" />

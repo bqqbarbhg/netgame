@@ -25,6 +25,15 @@ public:
 	inline unsigned int size() const { return m_size; }
 
 	inline bool empty() const { return m_buffer == nullptr; }
+
+	inline bool operator <(const Packet& rhs) const {
+		if (m_start != rhs.m_start)
+			return m_start < rhs.m_start;
+		if (m_size != rhs.m_size)
+			return m_size < rhs.m_size;
+		return m_buffer < rhs.m_buffer;
+	}
+
 private:
 	friend class PacketPool;
 	Packet(char *buf, unsigned int start, unsigned int size);
