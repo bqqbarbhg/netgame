@@ -16,12 +16,10 @@ typedef uint32_t ack_bitfield_t;
 // Type that can hold all channel numbers
 typedef uint16_t channel_id_t;
 
-enum {
-	// Number of bits in a `ack_bitfield_t`
-	ACKS_PER_BITFIELD = sizeof(ack_bitfield_t) * CHAR_BIT,
+// Number of bits in a `ack_bitfield_t`
+const unsigned int ACKS_PER_BITFIELD = sizeof(ack_bitfield_t) * CHAR_BIT;
 
-	// Maxium size of a packet to send
-	MAX_PACKET_SIZE = 64,
-};
+// Maxium size of a packet to send
+const unsigned int MAX_PACKET_SIZE = 512;
 
 #endif
