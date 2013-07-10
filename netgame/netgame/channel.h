@@ -37,22 +37,40 @@ protected:
 class ChannelIn : public Channel
 {
 public:
-	ChannelIn()
+	ChannelIn(PacketPool& pool)
 		: Channel()
+		, fragPool(pool)
 	{ }
-	explicit ChannelIn(Type t)
+	explicit ChannelIn(PacketPool& pool, Type t)
 		: Channel(t)
+		, fragPool(pool)
 	{ }
 
+	struct PendingPacket
+	{
+		PendingPacket(fragment_bitfield_t frags, seq_t seq, Packet&& p);
+		PendingPacket(PendingPacket&& p);
+		PendingPacket& operator=(PendingPacket p);
+
+		fragment_bitfield_t frag_need;
+		seq_t seq;
+		Packet packet;
+	};
+
 	// Add a packet to the received queue with the sequnece number `seq`
-	void add_to_queue(seq_t seq, Packet packet);
+	// Optional fragment data
+	// Returns the address of the packet if created (nullptr otherwise)
+	PendingPacket* add_packet(seq_t seq, Packet packet, fragment_bitfield_t frags=0);
+
+	void add_fragment(seq_t seq, const Packet& packet, fragment_id_t fragId, fragment_id_t fragCount, unsigned int startIndex, message_size_t msgSize);
 
 	// If there is a packet to receive pop and return it
 	// Else return an empty packet
 	Packet get_next();
 private:
 	seq_t m_last_read;
-	std::deque<std::pair<seq_t, Packet>> m_received;
+	std::deque<PendingPacket> m_received;
+	PacketPool& fragPool;
 };
 class ChannelOut : public Channel
 {
