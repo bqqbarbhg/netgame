@@ -1,6 +1,8 @@
 #include "connection.h"
 #include "packet.h"
 
+#include <utility>
+#include <algorithm>
 #include <netlib/serialization.h>
 
 Connection::Connection(const Address& addr, magic_t magic)
@@ -15,8 +17,8 @@ Connection::Connection(const Address& addr, magic_t magic)
 #endif
 {
 	// Create control channels
-	m_channels_in[0] = ChannelIn(Channel::SEQUENTIAL);
-	m_channels_out[0] = ChannelOut(Channel::SEQUENTIAL);
+	m_channels_in[0].reset(new ChannelIn(Channel::SEQUENTIAL));
+	m_channels_out[0].reset(new ChannelOut(Channel::SEQUENTIAL));
 }
 
 // = default
@@ -100,17 +102,133 @@ bool Connection::process_packet(const Packet& packet)
 	return true;
 }
 
+struct SendPacket
+{
+	SendPacket(channel_id_t ch, ChannelOut::OutgoingPacket&& p)
+		: chan(ch)
+		, seq(p.seq)
+		, packet(std::move(p.packet))
+	{
+	}
+	SendPacket(SendPacket&& p)
+		: seq(p.seq)
+		, packet(std::move(p.packet))
+		, chan(p.chan)
+	{
+	}
+	SendPacket& operator=(SendPacket p)
+	{
+		seq = p.seq;
+		std::swap(packet, p.packet);
+		chan = p.chan;
+		return *this;
+	}
+
+	bool operator <(unsigned int u) const {
+		return packet.size() < u;
+	}
+
+	seq_t seq;
+	Packet packet;
+	channel_id_t chan;
+};
+
+inline bool can_fit_any(unsigned int offset)
+{
+	// Can fit at least one byte
+	return offset + MSG_HEADER_SIZE < MAX_PACKET_SIZE - 1;
+}
+
+inline unsigned int fragment_count(unsigned int offset, unsigned int size)
+{
+	return (size - (MAX_PACKET_SIZE - MSG_HEADER_SIZE - offset)) / MAX_UNFRAGMENTED_MESSAGE_SIZE + 1;
+}
+
 void Connection::send_outgoing(Socket& socket)
 {
-	NetWriter writer(m_packet_pool.nextData(), m_packet_pool.nextSize());
+	// Collect all packets to send
+	std::vector<SendPacket> send_reliable;
+	std::vector<SendPacket> send_unreliable;
+	for (auto& chan : m_channels_out)
+	{
+		auto& src = chan.second->m_outgoing;
+		auto& dst = chan.second->is_reliable() ? send_reliable : send_unreliable;
+		for (auto& packet : src) {
+			dst.push_back(SendPacket(chan.first, std::move(packet)));
+		}
+		src.clear();
+	}
 
-	m_sequence++;
+	// Sort by size (descending)
+	std::sort(send_reliable.begin(), send_reliable.end(),
+		[](const ChannelOut::OutgoingPacket& a,
+		   const ChannelOut::OutgoingPacket& b) {
+			   return a.packet.size() > b.packet.size();
+	});
 
-	// Write the header
-	writer.write(m_magic);
-	writer.write(m_sequence);
-	writer.write(m_out_ack);
-	writer.write(m_out_ack_bits);
+	NetWriter writer(m_packet_pool.nextData(), MAX_PACKET_SIZE);
+
+	add_packet_header(writer);
+
+	// Packet fill algorithm
+	// P := largest packet
+	// while (true)
+	//      while (P overflows)
+	//        send part
+	//      append P
+	//      while (exists packets that won't overflow)
+	//        append largest of them
+	//      if (exists packets that would be less fragmented if started here)
+	//        P := largest of them
+	//      else
+	//        send
+	//        if (no more packets)
+	//          break
+	//        else
+	//          P := largest packet
+
+	std::vector<SendPacket>::iterator P;
+
+	P = send_reliable.begin();
+	while (!send_reliable.empty()) {
+		unsigned int fragc = fragment_count(writer.write_amount(), P->packet.size());
+		unsigned int start = 0;
+		for (unsigned int i = 0; i < fragc - 1; i++) {
+			start += add_packet(writer, P->chan, P->packet, start, fragc);
+			send_packet(writer);
+		}
+		add_packet(writer, P->chan, P->packet, start, fragc);
+		send_reliable.erase(P);
+
+		auto pos = writer.write_amount();
+		while (can_fit_any(pos)) {
+			auto it = std::find_if(send_reliable.begin(), send_reliable.end(),
+				[=](const SendPacket& p) {
+					return fragment_count(pos, p.packet.size()) == 1;
+			});
+			if (it != send_reliable.end()) {
+				add_packet(writer, it->chan, it->packet, 0, 1);
+				send_reliable.erase(it);
+			} else {
+				break;
+			}
+			pos = writer.write_amount();
+		}
+
+		if (can_fit_any(pos)) {
+			auto it = std::find_if(send_reliable.begin(), send_reliable.end(),
+				[=](const SendPacket& p) {
+					return fragment_count(pos, p.packet.size()) < fragment_count(0, p.packet.size());
+			});
+			if (it != send_reliable.end()) {
+				P = it;
+				continue;
+			}
+		}
+
+		send_packet(writer);
+		P = send_reliable.begin();
+	}
 
 	for (auto it = m_sent.begin(); it != m_sent.end();)
 	{
@@ -129,6 +247,30 @@ void Connection::send_outgoing(Socket& socket)
 	socket.send_to(m_address, packet.data(), packet.size());
 
 	m_sent[m_sequence] = SentPacket(packet, m_sequence);
+}
+
+void Connection::add_packet_header(NetWriter& w)
+{
+	w.write(m_magic);
+	w.write(m_sequence);
+	w.write(m_out_ack);
+	w.write(m_out_ack_bits);
+}
+
+ChannelIn *Connection::get_channel_in_by_id(channel_id_t id) const
+{
+	auto it = m_channels_in.find(id);
+	if (it == m_channels_in.end())
+		return nullptr;
+	return it->second.get();
+}
+
+ChannelOut *Connection::get_channel_out_by_id(channel_id_t id) const
+{
+	auto it = m_channels_out.find(id);
+	if (it == m_channels_out.end())
+		return nullptr;
+	return it->second.get();
 }
 
 #include <cstdio>

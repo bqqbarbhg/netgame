@@ -45,7 +45,10 @@ const unsigned int ACKS_PER_BITFIELD = sizeof(ack_bitfield_t) * CHAR_BIT;
 // How many fragments can one bitfield contain
 const unsigned int FRAGMENTS_PER_BITFIELD = sizeof(fragment_bitfield_t) * CHAR_BIT;
 
+// Maximum size of an unfragmented message sent through a channel
+const unsigned int MAX_UNFRAGMENTED_MESSAGE_SIZE = (MAX_PACKET_SIZE - HEADER_SIZE - FRAG_MSG_HEADER_SIZE);
+
 // Maximum size of a message sent through a channel
-const unsigned int MAX_MESSAGE_SIZE = (MAX_PACKET_SIZE - HEADER_SIZE - FRAG_MSG_HEADER_SIZE) * FRAGMENTS_PER_BITFIELD;
+const unsigned int MAX_MESSAGE_SIZE = MAX_UNFRAGMENTED_MESSAGE_SIZE * FRAGMENTS_PER_BITFIELD;
 
 #endif

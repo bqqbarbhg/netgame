@@ -24,6 +24,24 @@ ChannelIn::PendingPacket& ChannelIn::PendingPacket::operator=(PendingPacket p)
 	return *this;
 }
 
+ChannelOut::OutgoingPacket::OutgoingPacket(seq_t seq, Packet&& p)
+	: seq(seq)
+	, packet(std::move(p))
+{ }
+
+ChannelOut::OutgoingPacket::OutgoingPacket(OutgoingPacket&& p)
+	: seq(p.seq)
+	, packet(std::move(p.packet))
+{
+}
+
+ChannelOut::OutgoingPacket& ChannelOut::OutgoingPacket::operator=(OutgoingPacket p)
+{
+	seq = p.seq;
+	std::swap(packet, p.packet);
+	return *this;
+}
+
 ChannelIn::PendingPacket* ChannelIn::add_packet(seq_t seq, Packet packet, fragment_bitfield_t frags)
 {
 	auto pending = PendingPacket(frags, seq, std::move(packet));
@@ -86,7 +104,7 @@ void ChannelIn::add_fragment(seq_t seq, const Packet& packet, fragment_id_t frag
 	}
 }
 
-Packet ChannelIn::get_next()
+Packet ChannelIn::receive()
 {
 	if (m_received.empty())
 		return Packet();
@@ -144,4 +162,10 @@ Packet ChannelIn::get_next()
 		break;
 	}
 	return ret;
+}
+
+void ChannelOut::send(Packet packet)
+{
+	m_seq++;
+	m_outgoing.push_back(OutgoingPacket(m_seq, std::move(packet)));
 }

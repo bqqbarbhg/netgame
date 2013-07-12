@@ -31,6 +31,10 @@ public:
 		: m_type(t)
 	{ }
 
+	bool is_reliable() const {
+		return m_type == RELIABLE || m_type == SEQUENTIAL;
+	}
+
 protected:
 	Type m_type;
 };
@@ -66,7 +70,7 @@ public:
 
 	// If there is a packet to receive pop and return it
 	// Else return an empty packet
-	Packet get_next();
+	Packet receive();
 private:
 	seq_t m_last_read;
 	std::deque<PendingPacket> m_received;
@@ -82,7 +86,21 @@ public:
 		: Channel(t)
 	{ }
 
-	seq_t sequence;
+	struct OutgoingPacket
+	{
+		OutgoingPacket(seq_t seq, Packet&& p);
+		OutgoingPacket(OutgoingPacket&& p);
+		OutgoingPacket& operator=(OutgoingPacket p);
+
+		seq_t seq;
+		Packet packet;
+	};
+
+	void send(Packet packet);
+private:
+	friend class Connection;
+	std::vector<OutgoingPacket> m_outgoing;
+	seq_t m_seq;
 };
 
 #endif

@@ -41,9 +41,8 @@ public:
 	// Send packets (should be called with a fixed rate eg. 33 times a second)
 	void send_outgoing(Socket& socket);
 
-	// Send data to channel `chan`
-	// Sent when you call `send_outgoing`
-	void send(channel_id_t chan, const char* data, unsigned int size);
+	ChannelIn* get_channel_in_by_id(channel_id_t id) const;
+	ChannelOut* get_channel_out_by_id(channel_id_t id) const;
 
 #ifdef _DEBUG
 	void DEBUG_print_status();
@@ -53,12 +52,16 @@ public:
 private:
 	Connection(const Connection&);
 
+	void add_packet_header(NetWriter& w);
+	unsigned int add_packet(NetWriter& w, channel_id_t ch, const Packet& p, unsigned int start, unsigned int parts);
+	void send_packet(NetWriter& w);
+
 	magic_t m_magic;
 
 	Address m_address;
 
-	std::map<channel_id_t, ChannelIn> m_channels_in;
-	std::map<channel_id_t, ChannelOut> m_channels_out;
+	std::map<channel_id_t, std::unique_ptr<ChannelIn>> m_channels_in;
+	std::map<channel_id_t, std::unique_ptr<ChannelOut>> m_channels_out;
 
 	seq_t m_sequence;
 
